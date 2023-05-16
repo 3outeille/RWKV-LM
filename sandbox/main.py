@@ -147,10 +147,16 @@ def train(num_epochs, model, optimizer, criterion, train_loader, device):
 
             loss.backward()
             
+            # Average gradient per step
             with torch.no_grad():
-                for name, param in model.named_parameters():
-                    if name == "linear1.weight":
-                        grad_acc[f"epoch_{epoch}"].append(param.grad.norm(2).cpu().item())
+                gradients = [p.grad for p in model.parameters() if p.grad is not None]
+                avg_gradient = torch.norm(torch.cat([g.flatten() for g in gradients]), p=2) / len(gradients)
+                grad_acc[f"epoch_{epoch}"].append(avg_gradient.cpu().item())
+
+            # with torch.no_grad():
+            #     for name, param in model.named_parameters():
+            #         if name == "linear1.weight":
+            #             grad_acc[f"epoch_{epoch}"].append(param.grad.norm(2).cpu().item())
             
             optimizer.step()
 
@@ -163,6 +169,9 @@ def train(num_epochs, model, optimizer, criterion, train_loader, device):
 
         train_loss = train_loss_running / len(train_loader.sampler)
         train_acc = train_acc_running / len(train_loader.sampler)
+        
+        # Average gradient per epoch
+        grad_acc[f"epoch_{epoch}"] = np.mean(grad_acc[f"epoch_{epoch}"])
 
         info = "Epoch: {:3}/{} \t train_loss: {:.3f} \t train_acc: {:.3f}"
         print(info.format(epoch + 1, num_epochs, train_loss, train_acc))
@@ -184,4 +193,5 @@ if __name__ == "__main__":
     model = model.to(device)
     grad_acc = train(num_epochs, model, optimizer, criterion, train_loader, device)
     torch.save(model.state_dict(), "model.pt")
-    torch.save(grad_acc, "grad_acc_layer1.pt")
+    # torch.save(grad_acc, "grad_acc_layer1.pt")
+    torch.save(grad_acc, "grad_acc.pt")
